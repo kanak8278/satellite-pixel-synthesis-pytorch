@@ -536,7 +536,7 @@ if __name__ == '__main__':
         pin_memory=False,
     )
 
-    test_data = iter(test_loader).next()
+    test_data = next(iter(test_loader))
     del testset
     del test_loader
 #     print(test_data[0].shape)
