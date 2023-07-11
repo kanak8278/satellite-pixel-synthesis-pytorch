@@ -1,3 +1,4 @@
+import os.path
 from io import BytesIO
 import math
 
@@ -686,6 +687,7 @@ class LEVIRDataset(Dataset):
             img_path (string): path to the folder where images are
             transform: pytorch transforms for transforms and tensor conversion
         """
+        self.base_path = base_path
         self.integer_values = integer_values
         # Transforms
         self.transform = transform
@@ -719,6 +721,11 @@ class LEVIRDataset(Dataset):
         else:
             naip2 = self.naip[index + self.house_count]
         # Open image
+        if not self.base_path == "":
+            naip = os.path.join(self.base_path, naip)
+            naip2 = os.path.join(self.base_path, naip2)
+            sentinel = os.path.join(self.base_path, sentinel)
+
         naip = Image.open(naip).convert('RGB')
         naip2 = Image.open(naip2).convert('RGB')
         sentinel = Image.open(sentinel).convert('RGB')
