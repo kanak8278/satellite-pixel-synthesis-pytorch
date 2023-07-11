@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 import model
 from model.loss import SSIM
-from dataset import Naip2SentinelTDataset
+from dataset import LEVIRDataset
 from distributed import get_rank, synchronize, reduce_loss_dict
 from tensor_transforms import convert_to_coord_format
 import torchvision.models as models
@@ -42,7 +42,7 @@ def accumulate(model1, model2, decay=0.999):
     par2 = dict(model2.named_parameters())
 
     for k in par1.keys():
-        par1[k].data.mul_(decay).add_(par2[k].data, alpha = 1 - decay)
+        par1[k].data.mul_(decay).add_(par2[k].data, alpha=1 - decay)
 
 
 def sample_data(loader):
@@ -72,9 +72,10 @@ def g_nonsaturating_loss(fake_pred):
 
     return loss
 
+
 def g_rec_loss(fake, real):
     loss = F.l1_loss(fake, real)
-#     loss = F.mse_loss(fake, real, reduction='sum') / fake.size(0)
+    #     loss = F.mse_loss(fake, real, reduction='sum') / fake.size(0)
 
     return loss
 
@@ -97,7 +98,7 @@ def mixing_noise(batch, latent_dim, prob, device):
 
 
 def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_data, device):
-#     requires_grad(encoder, False)
+    #     requires_grad(encoder, False)
     loader = sample_data(loader)
 
     ssim = SSIM()
@@ -150,9 +151,9 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
         requires_grad(discriminator, True)
 
         noise = mixing_noise(args.batch, args.latent, args.mixing, device)
-#         lowres_embedding = encoder(lowres_img).squeeze()
-#         highres2_embedding = encoder(highres_img2).squeeze()
-#         print(lowres_embedding.shape)
+        #         lowres_embedding = encoder(lowres_img).squeeze()
+        #         highres2_embedding = encoder(highres_img2).squeeze()
+        #         print(lowres_embedding.shape)
 
         fake_img, _ = generator(converted, lowres_img, highres_img2, noise)
         fake = fake_img if args.img2dis else torch.cat([fake_img, converted], 1)
@@ -200,8 +201,7 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
         real_img = highres[:, :3]
         rec_loss = g_rec_loss(fake_img, real_img)
         ssim_loss = 1.0 - ssim(fake_img, real_img)
-        g_loss = g_gan_loss + args.l1_lambda*rec_loss + args.ssim_lambda*ssim_loss
-
+        g_loss = g_gan_loss + args.l1_lambda * rec_loss + args.ssim_lambda * ssim_loss
 
         loss_dict['g_gan'] = g_gan_loss
         loss_dict['g_rec'] = rec_loss
@@ -271,8 +271,8 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
                     )
 
                     if i == 0:
-#                         lowres_img = torch.nn.functional.interpolate(lowres_img, (10, 10))
-#                         lowres_img = torch.nn.functional.interpolate(lowres_img, (args.size, args.size))
+                        # lowres_img = torch.nn.functional.interpolate(lowres_img, (10, 10)) lowres_img =
+                        # torch.nn.functional.interpolate(lowres_img, (args.size, args.size))
                         utils.save_image(
                             lowres_img,
                             os.path.join(
@@ -316,6 +316,8 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
                         path,
                         f'outputs/{args.output_dir}/checkpoints/{str(i).zfill(6)}.pt'),
                 )
+
+
 #             if i % (args.save_checkpoint_frequency*10) == 0 and i > 0:
 #                 cur_metrics = calculate_fid(g_ema, fid_dataset=fid_dataset, bs=args.fid_batch, size=args.coords_size,
 #                                             num_batches=args.fid_samples//args.fid_batch, latent_size=args.latent,
@@ -353,29 +355,28 @@ if __name__ == '__main__':
     parser.add_argument('--batch', type=int, default=4)
     parser.add_argument('--num_workers', type=int, default=16)
     parser.add_argument('--to_crop', action='store_true')
-    parser.add_argument('--crop', type=int, default=256)
-    parser.add_argument('--coords_size', type=int, default=256)
-    parser.add_argument('--enc_res', type=int, default=224)
+    parser.add_argument('--crop', type=int, default=512)
+    parser.add_argument('--coords_size', type=int, default=512)
+    parser.add_argument('--enc_res', type=int, default=512)
 
     # Generator params
     parser.add_argument('--Generator', type=str, default='CIPSAtt')
     parser.add_argument('--coords_integer_values', action='store_true')
-    parser.add_argument('--size', type=int, default=256)
-    parser.add_argument('--fc_dim', type=int, default=256)
-    parser.add_argument('--latent', type=int, default=256)
-    parser.add_argument('--linear_dim', type=int, default=256)
+    parser.add_argument('--size', type=int, default=1024)
+    parser.add_argument('--fc_dim', type=int, default=512)
+    parser.add_argument('--latent', type=int, default=512)
+    parser.add_argument('--linear_dim', type=int, default=512)
     parser.add_argument('--activation', type=str, default=None)
     parser.add_argument('--channel_multiplier', type=int, default=2)
     parser.add_argument('--mixing', type=float, default=0.)
     parser.add_argument('--g_reg_every', type=int, default=4)
     parser.add_argument('--n_mlp', type=int, default=3)
 
-
     # Discriminator params
     parser.add_argument('--Discriminator', type=str, default='Discriminator')
     parser.add_argument('--d_reg_every', type=int, default=16)
     parser.add_argument('--r1', type=float, default=10)
-    parser.add_argument('--img2dis',  action='store_true')
+    parser.add_argument('--img2dis', action='store_true')
     parser.add_argument('--n_first_layers', type=int, default=0)
 
     args = parser.parse_args()
@@ -403,16 +404,17 @@ if __name__ == '__main__':
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
         synchronize()
 
-#     args.n_mlp = 3
+    #     args.n_mlp = 3
     args.dis_input_size = 9 if args.img2dis else 12
     print('img2dis', args.img2dis, 'dis_input_size', args.dis_input_size)
 
     args.start_iter = 0
-    n_scales = int(math.log(args.size//args.crop, 2)) + 1
+    n_scales = int(math.log(args.size // args.crop, 2)) + 1
     print('n_scales', n_scales)
 
     generator = Generator(size=args.size, hidden_size=args.fc_dim, style_dim=args.latent, n_mlp=args.n_mlp,
-                          activation=args.activation, linear_size = args.linear_dim, channel_multiplier=args.channel_multiplier,
+                          activation=args.activation, linear_size=args.linear_dim,
+                          channel_multiplier=args.channel_multiplier,
                           ).to(device)
 
     print('generator N params', sum(p.numel() for p in generator.parameters() if p.requires_grad))
@@ -421,7 +423,8 @@ if __name__ == '__main__':
         n_first_layers=args.n_first_layers,
     ).to(device)
     g_ema = Generator(size=args.size, hidden_size=args.fc_dim, style_dim=args.latent, n_mlp=args.n_mlp,
-                      activation=args.activation, linear_size = args.linear_dim, channel_multiplier=args.channel_multiplier,
+                      activation=args.activation, linear_size=args.linear_dim,
+                      channel_multiplier=args.channel_multiplier,
                       ).to(device)
     g_ema.eval()
     accumulate(g_ema, generator, 0)
@@ -429,9 +432,9 @@ if __name__ == '__main__':
     g_reg_ratio = args.g_reg_every / (args.g_reg_every + 1)
     d_reg_ratio = args.d_reg_every / (args.d_reg_every + 1)
 
-#     resnet18 = models.resnet18(pretrained=True).to(device)
-#     modules = list(resnet18.children())[:-1]
-#     encoder = nn.Sequential(*modules)
+    #     resnet18 = models.resnet18(pretrained=True).to(device)
+    #     modules = list(resnet18.children())[:-1]
+    #     encoder = nn.Sequential(*modules)
 
     g_optim = optim.Adam(
         generator.parameters(),
@@ -481,12 +484,12 @@ if __name__ == '__main__':
             broadcast_buffers=False,
         )
 
-#         encoder = nn.parallel.DistributedDataParallel(
-#             encoder,
-#             device_ids=[args.local_rank],
-#             output_device=args.local_rank,
-#             broadcast_buffers=False,
-#         )
+    #         encoder = nn.parallel.DistributedDataParallel(
+    #             encoder,
+    #             device_ids=[args.local_rank],
+    #             output_device=args.local_rank,
+    #             broadcast_buffers=False,
+    #         )
 
     enc_transform = transforms.Compose(
         [
@@ -512,10 +515,10 @@ if __name__ == '__main__':
     #                                    transforms.Lambda(lambda x: x.mul_(255.).byte())])
     # dataset = MultiScaleDataset(args.path, transform=transform, resolution=args.coords_size, crop_size=args.crop,
     #                             integer_values=args.coords_integer_values, to_crop=args.to_crop)
-    dataset = Naip2SentinelTDataset(args.path, transform=transform, enc_transform=enc_transform,
-                                    resolution=args.coords_size, integer_values=args.coords_integer_values)
-    testset = Naip2SentinelTDataset(args.test_path, transform=transform, enc_transform=enc_transform,
-                                    resolution=args.coords_size, integer_values=args.coords_integer_values)
+    dataset = LEVIRDataset(args.path, transform=transform, enc_transform=enc_transform,
+                           resolution=args.coords_size, integer_values=args.coords_integer_values)
+    testset = LEVIRDataset(args.test_path, transform=transform, enc_transform=enc_transform,
+                           resolution=args.coords_size, integer_values=args.coords_integer_values)
     # fid_dataset = ImageDataset(args.path, transform=transform_fid, resolution=args.coords_size, to_crop=args.to_crop)
     # fid_dataset.length = args.fid_samples
     loader = data.DataLoader(
@@ -539,7 +542,7 @@ if __name__ == '__main__':
     test_data = next(iter(test_loader))
     del testset
     del test_loader
-#     print(test_data[0].shape)
+    #     print(test_data[0].shape)
 
     writer = SummaryWriter(log_dir=args.logdir)
 
