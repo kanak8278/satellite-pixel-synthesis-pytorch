@@ -680,7 +680,7 @@ class FSAllPatch(Dataset):
 
 
 class LEVIRDataset(Dataset):
-    def __init__(self, csv_path, transform, enc_transform, resolution, integer_values):
+    def __init__(self, csv_path, transform, enc_transform, resolution, integer_values, base_path=None):
         """
         Args:
             csv_path (string): path to csv file
