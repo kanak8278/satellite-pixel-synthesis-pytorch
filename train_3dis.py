@@ -331,6 +331,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
+    parser.add_argument('--basedir', type=str, default="")
     parser.add_argument('--path', type=str, default="")
     parser.add_argument('--test_path', type=str, default="")
     parser.add_argument('--output_dir', type=str, default="texas_test")
@@ -516,9 +517,9 @@ if __name__ == '__main__':
     # dataset = MultiScaleDataset(args.path, transform=transform, resolution=args.coords_size, crop_size=args.crop,
     #                             integer_values=args.coords_integer_values, to_crop=args.to_crop)
     dataset = LEVIRDataset(args.path, transform=transform, enc_transform=enc_transform,
-                           resolution=args.coords_size, integer_values=args.coords_integer_values)
+                           resolution=args.coords_size, integer_values=args.coords_integer_values, base_dir=args.base_dir)
     testset = LEVIRDataset(args.test_path, transform=transform, enc_transform=enc_transform,
-                           resolution=args.coords_size, integer_values=args.coords_integer_values)
+                           resolution=args.coords_size, integer_values=args.coords_integer_values, base_dir=args.base_dir)
     # fid_dataset = ImageDataset(args.path, transform=transform_fid, resolution=args.coords_size, to_crop=args.to_crop)
     # fid_dataset.length = args.fid_samples
     loader = data.DataLoader(

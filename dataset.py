@@ -1,5 +1,6 @@
 from io import BytesIO
 import math
+import os
 
 import lmdb
 from PIL import Image
@@ -679,13 +680,14 @@ class FSAllPatch(Dataset):
 
 
 class LEVIRDataset(Dataset):
-    def __init__(self, csv_path, transform, enc_transform, resolution, integer_values):
+    def __init__(self, csv_path, transform, enc_transform, resolution, integer_values, base_dir=""):
         """
         Args:
             csv_path (string): path to csv file
             img_path (string): path to the folder where images are
             transform: pytorch transforms for transforms and tensor conversion
         """
+        self.base_dir = base_dir
         self.integer_values = integer_values
         # Transforms
         self.transform = transform
@@ -693,11 +695,11 @@ class LEVIRDataset(Dataset):
         # Read the csv file
         self.data_info = pd.read_csv(csv_path, header=0)
         # column 1-4 contain the image paths
-        self.A = np.asarray(self.data_info.iloc[:, 1])
-        self.B = np.asarray(self.data_info.iloc[:, 2])
+        self.A = np.asarray(self.data_info.iloc[:, 0])
+        self.B = np.asarray(self.data_info.iloc[:, 1])
         self.naip = np.concatenate((self.A, self.B))
-        self.down_A = np.asarray(self.data_info.iloc[:, 3])
-        self.down_B = np.asarray(self.data_info.iloc[:, 4])
+        self.down_A = np.asarray(self.data_info.iloc[:, 2])
+        self.down_B = np.asarray(self.data_info.iloc[:, 3])
         self.sentinel = np.concatenate((self.down_A, self.down_B))
         # Calculate len
         data_len = len(self.data_info.index)
@@ -719,6 +721,11 @@ class LEVIRDataset(Dataset):
         else:
             naip2 = self.naip[index + self.house_count]
         # Open image
+        if self.base_dir != "":
+            naip = os.path.join(self.base_dir, naip)
+            naip2 = os.path.join(self.base_dir, naip2)
+            sentinel = os.path.join(self.base_dir, sentinel)
+        
         naip = Image.open(naip).convert('RGB')
         naip2 = Image.open(naip2).convert('RGB')
         sentinel = Image.open(sentinel).convert('RGB')
