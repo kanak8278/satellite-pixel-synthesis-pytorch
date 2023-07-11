@@ -331,7 +331,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--basedir', type=str, default="")
+    parser.add_argument('--base_dir', type=str, default="")
     parser.add_argument('--path', type=str, default="")
     parser.add_argument('--test_path', type=str, default="")
     parser.add_argument('--output_dir', type=str, default="texas_test")
