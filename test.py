@@ -350,5 +350,5 @@ if __name__ == '__main__':
 #             broadcast_buffers=False,
 #         )
 
-# test_loader(args, g_ema, device)
-# test_patch_loader(args, g_ema, device)
+test_loader(args, g_ema, device)
+test_patch_loader(args, g_ema, device)

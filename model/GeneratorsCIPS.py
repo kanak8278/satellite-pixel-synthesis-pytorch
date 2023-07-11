@@ -35,6 +35,7 @@ class CIPSAtt(nn.Module):
             7: int(linear_size/8) * channel_multiplier,
             8: int(linear_size/16) * channel_multiplier,
         }
+        print("Channel Details:", self.channels)
 
         multiplier = 2
         in_channels = int(self.channels[0])

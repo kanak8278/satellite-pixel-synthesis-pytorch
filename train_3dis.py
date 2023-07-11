@@ -493,16 +493,16 @@ if __name__ == '__main__':
             # transforms.Resize(256),
             # transforms.ToTensor(),
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
-            transforms.Resize(256),
-            transforms.CenterCrop(256),
+            transforms.Resize(args.size),
+            transforms.CenterCrop(args.size),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
         ]
     )
     transform = transforms.Compose(
         [
-            transforms.Resize(256),
-            transforms.CenterCrop(256),
+            transforms.Resize(args.size),
+            transforms.CenterCrop(args.size),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
         ]
