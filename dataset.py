@@ -748,3 +748,68 @@ class LEVIRDataset(Dataset):
 
     def __len__(self):
         return self.data_len
+
+
+class LEVIRDatasetPath(Dataset):
+    def __init__(self, csv_path, transform, enc_transform, resolution, integer_values, base_dir=""):
+        """
+        Args:
+            csv_path (string): path to csv file
+            img_path (string): path to the folder where images are
+            transform: pytorch transforms for transforms and tensor conversion
+        """
+        self.base_dir = base_dir
+        self.integer_values = integer_values
+        # Transforms
+        self.transform = transform
+        self.enc_transform = enc_transform
+        # Read the csv file
+        self.data_info = pd.read_csv(csv_path, header=0)
+        # column 1-4 contain the image paths
+        self.naip2016 = np.asarray(self.data_info.iloc[:, 0])
+        self.naip2018 = np.asarray(self.data_info.iloc[:, 1])
+        self.naip = np.concatenate((self.naip2016, self.naip2018))
+        self.sentinel2016 = np.asarray(self.data_info.iloc[:, 2])
+        self.sentinel2018 = np.asarray(self.data_info.iloc[:, 3])
+        self.sentinel = np.concatenate((self.sentinel2016, self.sentinel2018))
+        # Calculate len
+        data_len = len(self.data_info.index)
+        self.house_count = data_len
+        self.time = np.concatenate((np.array([0] * data_len), np.array([1] * data_len)))
+        self.data_len = len(self.sentinel)
+        self.coords = tt.convert_to_coord_with_t(1, resolution, resolution, [0, 1], integer_values=self.integer_values)
+        # self.crop = tt.RandomCrop(resolution)
+
+    #         print(self.naip.shape, self.sentinel.shape, self.time.shape)
+
+    def __getitem__(self, index):
+        # Get image name from the pandas df
+        naip = self.naip[index]
+        path = naip.split("/")[-1]
+        sentinel = self.sentinel[index]
+        t = self.time[index]
+        if t == 1:
+            naip2 = self.naip[index - self.house_count]
+        else:
+            naip2 = self.naip[index + self.house_count]
+
+        if self.base_dir != "":
+            naip = os.path.join(self.base_dir, naip)
+            naip2 = os.path.join(self.base_dir, naip2)
+            sentinel = os.path.join(self.base_dir, sentinel)
+
+        # Open image
+        naip = Image.open(naip).convert('RGB')
+        naip2 = Image.open(naip2).convert('RGB')
+        sentinel = Image.open(sentinel).convert('RGB')
+        # Transform the image
+        naip = self.transform(naip)
+        naip2 = self.enc_transform(naip2)
+        sentinel = self.enc_transform(sentinel)
+        naip = torch.cat([naip, self.coords[t]], 0)
+
+        return (naip, sentinel, naip2, path)
+
+    def __len__(self):
+        return self.data_len
+

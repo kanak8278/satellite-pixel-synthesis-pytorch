@@ -18,7 +18,7 @@ from torchvision import transforms, utils
 from tqdm import tqdm
 
 import model
-from dataset import Naip2SentinelTDataset, Naip2SentinelTPath, MSNSTPDataset
+from dataset import LEVIRDatasetPath
 # from calculate_fid import calculate_fid
 from distributed import get_rank, synchronize, reduce_loss_dict
 from tensor_transforms import convert_to_coord_format
@@ -95,14 +95,15 @@ def stack_sliding_patches(patches, batch_size, resolution, patch_size, channel_s
 def test_loader(args, g_ema, device):
     transform = transforms.Compose(
         [
-            transforms.Resize(256),
-            transforms.CenterCrop(256),
+            transforms.Resize(args.size),
+            transforms.CenterCrop(args.size),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
         ]
     )
-    testset = Naip2SentinelTPath(args.test_path, transform=transform, enc_transform=transform,
-                                    resolution=args.coords_size, integer_values=args.coords_integer_values)
+    testset = LEVIRDatasetPath(args.test_path, transform=transform, enc_transform=transform,
+                           resolution=args.coords_size, integer_values=args.coords_integer_values,
+                           base_dir=args.base_dir)
     test_loader = data.DataLoader(
         testset,
         batch_size=1,
@@ -247,8 +248,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
+    parser.add_argument('--base_dir', type=str, default="")
     parser.add_argument('--test_path', type=str, default="")
-    parser.add_argument('--output_dir', type=str, default="texas_housing_test")
+    parser.add_argument('--output_dir', type=str, default="inference_imgs")
     parser.add_argument('--out_path', type=str, default='.')
 
     # fid
@@ -262,17 +264,17 @@ if __name__ == '__main__':
     # dataset
     parser.add_argument('--num_workers', type=int, default=16)
     parser.add_argument('--to_crop', action='store_true')
-    parser.add_argument('--crop_size', type=int, default=256)
-    parser.add_argument('--coords_size', type=int, default=256)
-    parser.add_argument('--enc_res', type=int, default=256)
+    parser.add_argument('--crop_size', type=int, default=512)
+    parser.add_argument('--coords_size', type=int, default=512)
+    parser.add_argument('--enc_res', type=int, default=512)
 
     # Generator params
     parser.add_argument('--Generator', type=str, default='CIPSAtt')
     parser.add_argument('--coords_integer_values', action='store_true')
-    parser.add_argument('--size', type=int, default=256)
-    parser.add_argument('--fc_dim', type=int, default=256)
-    parser.add_argument('--latent', type=int, default=256)
-    parser.add_argument('--linear_dim', type=int, default=256)
+    parser.add_argument('--size', type=int, default=512)
+    parser.add_argument('--fc_dim', type=int, default=512)
+    parser.add_argument('--latent', type=int, default=512)
+    parser.add_argument('--linear_dim', type=int, default=512)
     parser.add_argument('--activation', type=str, default=None)
     parser.add_argument('--channel_multiplier', type=int, default=2)
     parser.add_argument('--mixing', type=float, default=0.)
@@ -351,4 +353,4 @@ if __name__ == '__main__':
 #         )
 
 test_loader(args, g_ema, device)
-test_patch_loader(args, g_ema, device)
+# test_patch_loader(args, g_ema, device)
