@@ -98,13 +98,15 @@ def mixing_noise(batch, latent_dim, prob, device):
 
 
 def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_data, device):
+    print("Training Function called...")
     #     requires_grad(encoder, False)
     loader = sample_data(loader)
 
     ssim = SSIM()
 
     pbar = range(args.iter)
-
+    print("pbar created...", args.start_iter, args.iter)
+    
     if get_rank() == 0:
         pbar = tqdm(pbar, initial=args.start_iter, dynamic_ncols=True, smoothing=0.01)
 
@@ -115,19 +117,22 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
     path_lengths = torch.tensor(0.0, device=device)
     mean_path_length_avg = 0
     loss_dict = {}
-
+    print("Losses Initialized...")
+    
     if args.distributed:
+        print("Distributed Training...")
         g_module = generator.module
         d_module = discriminator.module
 
     else:
+        print("Non-Distributed Training...")
         g_module = generator
         d_module = discriminator
 
     accum = 0.5 ** (32 / (10 * 1000))
 
     sample_z = torch.randn(args.n_sample, args.latent, device=device)
-
+    print("Training to start...")
     for idx in pbar:
         i = idx + args.start_iter
 
@@ -350,11 +355,11 @@ if __name__ == '__main__':
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--l1_lambda', type=float, default=100)
     parser.add_argument('--ssim_lambda', type=float, default=0)
-    parser.add_argument('--save_checkpoint_frequency', type=int, default=2000)
+    parser.add_argument('--save_checkpoint_frequency', type=int, default=6000)
 
     # dataset
     parser.add_argument('--batch', type=int, default=4)
-    parser.add_argument('--num_workers', type=int, default=16)
+    parser.add_argument('--num_workers', type=int, default=8)
     parser.add_argument('--to_crop', action='store_true')
     parser.add_argument('--crop', type=int, default=512)
     parser.add_argument('--coords_size', type=int, default=512)
@@ -363,7 +368,7 @@ if __name__ == '__main__':
     # Generator params
     parser.add_argument('--Generator', type=str, default='CIPSAtt')
     parser.add_argument('--coords_integer_values', action='store_true')
-    parser.add_argument('--size', type=int, default=1024)
+    parser.add_argument('--size', type=int, default=512)
     parser.add_argument('--fc_dim', type=int, default=512)
     parser.add_argument('--latent', type=int, default=512)
     parser.add_argument('--linear_dim', type=int, default=512)
@@ -381,6 +386,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_first_layers', type=int, default=0)
 
     args = parser.parse_args()
+    print(args)
     path = args.out_path
 
     Generator = getattr(model, args.Generator)
@@ -397,9 +403,11 @@ if __name__ == '__main__':
 
     n_gpu = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
     args.distributed = n_gpu > 1
+    args.local_rank = int(os.environ['LOCAL_RANK']) if 'LOCAL_RANK' in os.environ else 0
     print("Using:", n_gpu, "GPUs")
 
     if args.distributed:
+        print("Local Rank:", args.local_rank)
         print("Parallelized")
         torch.cuda.set_device(args.local_rank)
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
@@ -430,9 +438,10 @@ if __name__ == '__main__':
     g_ema.eval()
     accumulate(g_ema, generator, 0)
 
+    print('discriminator N params', sum(p.numel() for p in discriminator.parameters() if p.requires_grad))
     g_reg_ratio = args.g_reg_every / (args.g_reg_every + 1)
     d_reg_ratio = args.d_reg_every / (args.d_reg_every + 1)
-
+    
     #     resnet18 = models.resnet18(pretrained=True).to(device)
     #     modules = list(resnet18.children())[:-1]
     #     encoder = nn.Sequential(*modules)
@@ -447,6 +456,9 @@ if __name__ == '__main__':
         lr=args.lr * d_reg_ratio,
         betas=(0 ** d_reg_ratio, 0.99 ** d_reg_ratio),
     )
+    print('Optimizers:')
+    print('g_optim', g_optim)
+    print('d_optim', d_optim)
 
     if args.ckpt is not None:
         print('load model:', args.ckpt)
@@ -469,8 +481,10 @@ if __name__ == '__main__':
 
         del ckpt
         torch.cuda.empty_cache()
-
+        print('load model done')
+        
     if args.distributed:
+        print("DistributedDataParallel  Gererator and Discriminator")
         generator = nn.parallel.DistributedDataParallel(
             generator,
             device_ids=[args.local_rank],
@@ -484,6 +498,7 @@ if __name__ == '__main__':
             output_device=args.local_rank,
             broadcast_buffers=False,
         )
+        print("DistributedDataParallel  Generator and Discriminator Done")
 
     #         encoder = nn.parallel.DistributedDataParallel(
     #             encoder,
@@ -511,6 +526,7 @@ if __name__ == '__main__':
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
         ]
     )
+    
     # transform_fid = transforms.Compose([
     #                                    transforms.ToTensor(),
     #                                    transforms.Lambda(lambda x: x.mul_(255.).byte())])
@@ -522,6 +538,9 @@ if __name__ == '__main__':
                            resolution=args.coords_size, integer_values=args.coords_integer_values, base_dir=args.base_dir)
     # fid_dataset = ImageDataset(args.path, transform=transform_fid, resolution=args.coords_size, to_crop=args.to_crop)
     # fid_dataset.length = args.fid_samples
+    print('train dataset length', len(dataset))
+    print('test dataset length', len(testset))
+    
     loader = data.DataLoader(
         dataset,
         batch_size=args.batch,
@@ -539,11 +558,13 @@ if __name__ == '__main__':
         num_workers=args.num_workers,
         pin_memory=False,
     )
-
+    print('train_loader length', len(loader))
+    print('test_loader length', len(test_loader))
+    
     test_data = next(iter(test_loader))
     del testset
     del test_loader
-    #     print(test_data[0].shape)
+    # print(test_data[0].shape)
 
     writer = SummaryWriter(log_dir=args.logdir)
 
