@@ -8,6 +8,7 @@ from PIL import Image
 import numpy as np
 import torch
 import torch.multiprocessing
+
 torch.multiprocessing.set_sharing_strategy('file_system')
 from torch import nn, autograd, optim
 from torch.nn import functional as F
@@ -51,6 +52,7 @@ def sample_data(loader):
         for batch in loader:
             yield batch
 
+
 def make_noise(batch, latent_dim, n_noise, device):
     if n_noise == 1:
         return torch.randn(batch, latent_dim, device=device)
@@ -67,30 +69,38 @@ def mixing_noise(batch, latent_dim, prob, device):
     else:
         return [make_noise(batch, latent_dim, 1, device)]
 
-def stack_patches(patches, batch_size, resolution, patch_size, channel_size = 3):
+
+def stack_patches(patches, batch_size, resolution, patch_size, channel_size=3):
     result = torch.zeros(batch_size, channel_size, resolution, resolution)
     n = resolution // patch_size
     for i in range(n):
         for j in range(n):
-            result[:, :, i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = patches[(i,j)]
+            result[:, :, i * patch_size:(i + 1) * patch_size, j * patch_size:(j + 1) * patch_size] = patches[(i, j)]
     return result
 
-def stack_sliding_patches(patches, batch_size, resolution, patch_size, channel_size = 3, device = "cuda"):
+
+def stack_sliding_patches(patches, batch_size, resolution, patch_size, channel_size=3, device="cuda"):
     result = torch.zeros(batch_size, channel_size, resolution, resolution).to(device)
     n = resolution // patch_size
-    quarter_size = patch_size//4
+    quarter_size = patch_size // 4
     for i in range(n):
         for j in range(n):
-            result[:, :, i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = patches[(i,j)]
+            result[:, :, i * patch_size:(i + 1) * patch_size, j * patch_size:(j + 1) * patch_size] = patches[(i, j)]
     for i in range(n):
-        for j in range(n-1):
-            result[:, :, i*patch_size:(i+1)*patch_size, (j+1)*patch_size-quarter_size:(j+1)*patch_size+quarter_size] += patches[(i,j+0.5)][:,:,:,quarter_size:quarter_size*3]*2
-            result[:, :, i*patch_size:(i+1)*patch_size, (j+1)*patch_size-quarter_size:(j+1)*patch_size+quarter_size]/= 3
+        for j in range(n - 1):
+            result[:, :, i * patch_size:(i + 1) * patch_size,
+            (j + 1) * patch_size - quarter_size:(j + 1) * patch_size + quarter_size] += patches[(i, j + 0.5)][:, :, :,
+                                                                                        quarter_size:quarter_size * 3] * 2
+            result[:, :, i * patch_size:(i + 1) * patch_size,
+            (j + 1) * patch_size - quarter_size:(j + 1) * patch_size + quarter_size] /= 3
     for j in range(n):
-        for i in range(n-1):
-            result[:, :, (i+1)*patch_size-quarter_size:(i+1)*patch_size+quarter_size, j*patch_size:(j+1)*patch_size] += patches[(i+0.5,j)][:,:,quarter_size:quarter_size*3,:]*2
-            result[:, :, (i+1)*patch_size-quarter_size:(i+1)*patch_size+quarter_size, j*patch_size:(j+1)*patch_size] /=3
+        for i in range(n - 1):
+            result[:, :, (i + 1) * patch_size - quarter_size:(i + 1) * patch_size + quarter_size,
+            j * patch_size:(j + 1) * patch_size] += patches[(i + 0.5, j)][:, :, quarter_size:quarter_size * 3, :] * 2
+            result[:, :, (i + 1) * patch_size - quarter_size:(i + 1) * patch_size + quarter_size,
+            j * patch_size:(j + 1) * patch_size] /= 3
     return result
+
 
 def test_loader(args, g_ema, device):
     transform = transforms.Compose(
@@ -102,8 +112,8 @@ def test_loader(args, g_ema, device):
         ]
     )
     testset = LEVIRDatasetPath(args.test_path, transform=transform, enc_transform=transform,
-                           resolution=args.coords_size, integer_values=args.coords_integer_values,
-                           base_dir=args.base_dir)
+                               resolution=args.coords_size, integer_values=args.coords_integer_values,
+                               base_dir=args.base_dir)
     test_loader = data.DataLoader(
         testset,
         batch_size=1,
@@ -120,17 +130,16 @@ def test_loader(args, g_ema, device):
     if get_rank() == 0:
         pbar = tqdm(pbar, initial=args.start_iter, dynamic_ncols=True, smoothing=0.01)
 
-#     if args.distributed:
-#         g_module = generator.module
-#         d_module = discriminator.module
+    #     if args.distributed:
+    #         g_module = generator.module
+    #         d_module = discriminator.module
 
-#     else:
-#         g_module = generator
-#         d_module = discriminator
+    #     else:
+    #         g_module = generator
+    #         d_module = discriminator
 
     with torch.no_grad():
         g_ema.eval()
-
 
         for idx in pbar:
             i = idx + args.start_iter
@@ -150,7 +159,8 @@ def test_loader(args, g_ema, device):
             noise = mixing_noise(1, args.latent, args.mixing, device)
 
             sample, _ = g_ema(converted, lowres_img, highres_img2, noise)
-
+            save_path = os.path.join(path, 'cls', args.output_dir, img_path[0].replace("tif", "png"))
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
             utils.save_image(
                 sample,
                 os.path.join(path, 'cls', args.output_dir, img_path[0].replace("tif", "png")),
@@ -170,8 +180,8 @@ def test_patch_loader(args, g_ema, device):
         ]
     )
     testset = MSNSTPDataset(args.test_path, transform=transform, enc_transform=transform,
-                                    resolution=args.coords_size, crop_size = args.crop_size,
-                                    integer_values=args.coords_integer_values)
+                            resolution=args.coords_size, crop_size=args.crop_size,
+                            integer_values=args.coords_integer_values)
     test_loader = data.DataLoader(
         testset,
         batch_size=1,
@@ -188,17 +198,16 @@ def test_patch_loader(args, g_ema, device):
     if get_rank() == 0:
         pbar = tqdm(pbar, initial=args.start_iter, dynamic_ncols=True, smoothing=0.01)
 
-#     if args.distributed:
-#         g_module = generator.module
-#         d_module = discriminator.module
+    #     if args.distributed:
+    #         g_module = generator.module
+    #         d_module = discriminator.module
 
-#     else:
-#         g_module = generator
-#         d_module = discriminator
+    #     else:
+    #         g_module = generator
+    #         d_module = discriminator
 
     with torch.no_grad():
         g_ema.eval()
-
 
         for idx in pbar:
             i = idx + args.start_iter
@@ -214,7 +223,7 @@ def test_patch_loader(args, g_ema, device):
 
             filename = os.path.join(path, 'cls', args.output_dir, img_path[0].replace("tif", "png"))
 
-            if os.path.exists(filename) and i<14000:
+            if os.path.exists(filename) and i < 14000:
                 continue
             else:
                 for patch_index in test_data.keys():
@@ -282,7 +291,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_mlp', type=int, default=3)
 
     # Discriminator params
-    parser.add_argument('--img2dis',  action='store_true')
+    parser.add_argument('--img2dis', action='store_true')
 
     args = parser.parse_args()
     path = args.out_path
@@ -298,21 +307,22 @@ if __name__ == '__main__':
     args.distributed = n_gpu > 1
     print("Using:", n_gpu, "GPUs")
 
-#     if args.distributed:
-#         print("Parallelized")
-#         torch.cuda.set_device(args.local_rank)
-#         torch.distributed.init_process_group(backend='nccl', init_method='env://')
-#         synchronize()
+    #     if args.distributed:
+    #         print("Parallelized")
+    #         torch.cuda.set_device(args.local_rank)
+    #         torch.distributed.init_process_group(backend='nccl', init_method='env://')
+    #         synchronize()
 
-#     args.n_mlp = 1
+    #     args.n_mlp = 1
     args.dis_input_size = 9 if args.img2dis else 12
     print('img2dis', args.img2dis, 'dis_input_size', args.dis_input_size)
 
-    n_scales = int(math.log(args.size//args.crop_size, 2)) + 1
+    n_scales = int(math.log(args.size // args.crop_size, 2)) + 1
     print('n_scales', n_scales)
 
     g_ema = Generator(size=args.size, hidden_size=args.fc_dim, style_dim=args.latent, n_mlp=args.n_mlp,
-                      activation=args.activation, linear_size = args.linear_dim,  crop_size = args.crop_size, channel_multiplier=args.channel_multiplier,
+                      activation=args.activation, linear_size=args.linear_dim, crop_size=args.crop_size,
+                      channel_multiplier=args.channel_multiplier,
                       ).to(device)
     g_ema.eval()
 
@@ -321,8 +331,8 @@ if __name__ == '__main__':
 
         ckpt = torch.load(args.ckpt)
 
-#         generator.load_state_dict(ckpt['g'])
-#         discriminator.load_state_dict(ckpt['d'])
+        #         generator.load_state_dict(ckpt['g'])
+        #         discriminator.load_state_dict(ckpt['d'])
         g_ema.load_state_dict(ckpt['g_ema'])
 
         del ckpt
