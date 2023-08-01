@@ -785,7 +785,7 @@ class LEVIRDatasetPath(Dataset):
     def __getitem__(self, index):
         # Get image name from the pandas df
         naip = self.naip[index]
-        path = naip.split("/")[-1]
+        path = "/".join(naip.split("/")[-2:])
         sentinel = self.sentinel[index]
         t = self.time[index]
         if t == 1:
