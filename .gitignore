@@ -1,0 +1,16 @@
+**.png
+**.jpg
+**.pt
+**.pth
+**.pkl
+**.jpeg
+jobs/
+data/
+tensorboard/
+outputs*/
+.vscode/
+__pycache__/
+./docker_stderror
+./core
+
+
