@@ -11,6 +11,6 @@ outputs*/
 .vscode/
 __pycache__/
 ./docker_stderror
-./core
+core
 
 
